@@ -39,7 +39,9 @@ export default function Dashboard({ metrics }: Props) {
         <div>
           <div className="page-title">Dashboard</div>
           <div className="page-subtitle">
-            {nodeStatus.pveversion ? `Proxmox VE ${nodeStatus.pveversion}` : "Proxmox VE"} ·
+            {nodeStatus.pveversion
+              ? `Proxmox VE ${nodeStatus.pveversion.replace(/^pve-manager\//, "").split("/")[0]}`
+              : "Proxmox VE"} ·
             Uptime: {formatUptime(nodeStatus.uptime)}
           </div>
         </div>
@@ -82,7 +84,7 @@ export default function Dashboard({ metrics }: Props) {
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
             {(nodeStatus.loadavg || []).map((v, i) => (
               <div key={i}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>{v.toFixed(2)}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>{parseFloat(String(v)).toFixed(2)}</div>
                 <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{["1m", "5m", "15m"][i]}</div>
               </div>
             ))}

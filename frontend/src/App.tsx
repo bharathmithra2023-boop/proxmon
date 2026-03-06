@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, Component } from "react";
+import type { ReactNode } from "react";
 import "./index.css";
 import { useMetricsWS } from "./hooks/useWebSocket";
 import { useToast } from "./hooks/useToast";
@@ -10,6 +11,33 @@ import CreateVM from "./pages/CreateVM";
 import Settings from "./pages/Settings";
 
 type Page = "dashboard" | "vms" | "create" | "settings";
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+  state = { error: null };
+  static getDerivedStateFromError(err: Error) {
+    return { error: err.message };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 40, color: "var(--danger)" }}>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Render Error</div>
+          <div style={{ fontFamily: "monospace", fontSize: 13, background: "var(--bg-card)", padding: 16, borderRadius: 8 }}>
+            {this.state.error}
+          </div>
+          <button
+            className="btn btn-primary"
+            style={{ marginTop: 16 }}
+            onClick={() => this.setState({ error: null })}
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function App() {
   const [page, setPage] = useState<Page>("dashboard");
@@ -25,12 +53,7 @@ export default function App() {
       case "vms":
         return <VMList vms={metrics?.vms ?? []} onToast={onToast} />;
       case "create":
-        return (
-          <CreateVM
-            onToast={onToast}
-            onDone={() => setPage("vms")}
-          />
-        );
+        return <CreateVM onToast={onToast} onDone={() => setPage("vms")} />;
       case "settings":
         return <Settings />;
     }
@@ -39,7 +62,9 @@ export default function App() {
   return (
     <div className="app-layout">
       <Sidebar page={page} onNav={setPage} wsStatus={status} />
-      <main className="main-content">{renderPage()}</main>
+      <main className="main-content">
+        <ErrorBoundary>{renderPage()}</ErrorBoundary>
+      </main>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
