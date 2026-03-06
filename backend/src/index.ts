@@ -5,7 +5,11 @@ import http from "http";
 import nodesRouter from "./routes/nodes";
 import vmsRouter from "./routes/vms";
 import actionsRouter from "./routes/actions";
+import authRouter from "./routes/auth";
+import usersRouter from "./routes/users";
 import { initWebSocket } from "./ws/metricsStream";
+import { requireAuth, requireOperator } from "./middleware/auth";
+import { initDefaultAdmin } from "./lib/userStore";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "4000");
@@ -13,6 +17,7 @@ const PORT = parseInt(process.env.PORT || "4000");
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
+// Public
 app.get("/api/health", (_req, res) => {
   res.json({
     status: "ok",
@@ -30,12 +35,17 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-app.use("/api/nodes", nodesRouter);
-app.use("/api/vms", vmsRouter);
-app.use("/api/actions", actionsRouter);
+app.use("/api/auth", authRouter);
+
+// Protected routes
+app.use("/api/nodes", requireAuth, nodesRouter);
+app.use("/api/vms", requireAuth, vmsRouter);
+app.use("/api/actions", requireAuth, requireOperator, actionsRouter);
+app.use("/api/users", usersRouter);
 
 const server = http.createServer(app);
 initWebSocket(server);
+initDefaultAdmin();
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`[ProxMon] Backend running on http://0.0.0.0:${PORT}`);

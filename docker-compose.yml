@@ -7,6 +7,8 @@ services:
     restart: unless-stopped
     env_file: ./backend/.env
     network_mode: "host"
+    volumes:
+      - proxmon-data:/app/data
 
   frontend:
     build:
@@ -17,3 +19,6 @@ services:
     network_mode: "host"
     depends_on:
       - backend
+
+volumes:
+  proxmon-data:

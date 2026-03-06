@@ -10,6 +10,7 @@ interface Props {
   vm: VMStatus;
   onClick: () => void;
   onAction: (msg: string, type: "success" | "error") => void;
+  readOnly?: boolean;
 }
 
 type Action = "start" | "stop" | "reboot" | "shutdown";
@@ -20,7 +21,7 @@ interface PendingAction {
   icon: string;
 }
 
-export default function VMCard({ vm, onClick, onAction }: Props) {
+export default function VMCard({ vm, onClick, onAction, readOnly }: Props) {
   const [loading, setLoading] = useState<Action | null>(null);
   const [confirm, setConfirm] = useState<PendingAction | null>(null);
 
@@ -83,7 +84,7 @@ export default function VMCard({ vm, onClick, onAction }: Props) {
           </div>
         )}
 
-        <div className="vm-actions" onClick={(e) => e.stopPropagation()}>
+        {!readOnly && <div className="vm-actions" onClick={(e) => e.stopPropagation()}>
           {isStopped && (
             <button
               className="btn btn-success btn-sm"
@@ -118,7 +119,7 @@ export default function VMCard({ vm, onClick, onAction }: Props) {
               </button>
             </>
           )}
-        </div>
+        </div>}
       </div>
 
       {confirm && (

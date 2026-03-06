@@ -18,7 +18,8 @@ export function useMetricsWS() {
   const connect = useCallback(() => {
     if (!mountedRef.current) return;
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const url = `${protocol}://${window.location.host}/ws`;
+    const token = localStorage.getItem("proxmon_token") || "";
+    const url = `${protocol}://${window.location.host}/ws?token=${encodeURIComponent(token)}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
     setStatus("connecting");

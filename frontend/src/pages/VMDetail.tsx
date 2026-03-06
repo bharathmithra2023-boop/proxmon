@@ -18,6 +18,7 @@ interface Props {
   vm: VMStatus;
   onBack: () => void;
   onToast: (msg: string, type: "success" | "error") => void;
+  userRole?: string;
 }
 
 interface RRDPoint {
@@ -45,7 +46,7 @@ const TooltipContent = ({ active, payload, label }: { active?: boolean; payload?
   );
 };
 
-export default function VMDetail({ vm, onBack, onToast }: Props) {
+export default function VMDetail({ vm, onBack, onToast, userRole }: Props) {
   const [rrd, setRRD] = useState<RRDPoint[]>([]);
   const [config, setConfig] = useState<Record<string, unknown>>({});
   const [timeframe, setTimeframe] = useState<Timeframe>("hour");
@@ -119,26 +120,28 @@ export default function VMDetail({ vm, onBack, onToast }: Props) {
             ID: {vm.vmid} · {vm.type.toUpperCase()} · <StatusBadge status={vm.status} />
           </div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          {isStopped && (
-            <button className="btn btn-success" onClick={() => doAction("start")} disabled={!!loadingAction}>
-              {loadingAction === "start" ? <span className="spinner" /> : "▶ Start"}
-            </button>
-          )}
-          {isRunning && (
-            <>
-              <button className="btn btn-warning" onClick={() => setConfirm({ action: "reboot", label: "Reboot" })} disabled={!!loadingAction}>
-                {loadingAction === "reboot" ? <span className="spinner" /> : "↺ Reboot"}
+        {userRole !== "viewer" && (
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            {isStopped && (
+              <button className="btn btn-success" onClick={() => doAction("start")} disabled={!!loadingAction}>
+                {loadingAction === "start" ? <span className="spinner" /> : "▶ Start"}
               </button>
-              <button className="btn btn-ghost" onClick={() => setConfirm({ action: "shutdown", label: "Shutdown" })} disabled={!!loadingAction}>
-                {loadingAction === "shutdown" ? <span className="spinner" /> : "⏻ Shutdown"}
-              </button>
-              <button className="btn btn-danger" onClick={() => setConfirm({ action: "stop", label: "Force Stop" })} disabled={!!loadingAction}>
-                {loadingAction === "stop" ? <span className="spinner" /> : "⬛ Stop"}
-              </button>
-            </>
-          )}
-        </div>
+            )}
+            {isRunning && (
+              <>
+                <button className="btn btn-warning" onClick={() => setConfirm({ action: "reboot", label: "Reboot" })} disabled={!!loadingAction}>
+                  {loadingAction === "reboot" ? <span className="spinner" /> : "↺ Reboot"}
+                </button>
+                <button className="btn btn-ghost" onClick={() => setConfirm({ action: "shutdown", label: "Shutdown" })} disabled={!!loadingAction}>
+                  {loadingAction === "shutdown" ? <span className="spinner" /> : "⏻ Shutdown"}
+                </button>
+                <button className="btn btn-danger" onClick={() => setConfirm({ action: "stop", label: "Force Stop" })} disabled={!!loadingAction}>
+                  {loadingAction === "stop" ? <span className="spinner" /> : "⬛ Stop"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="detail-grid">

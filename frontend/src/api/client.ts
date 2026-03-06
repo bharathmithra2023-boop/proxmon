@@ -2,6 +2,60 @@ import axios from "axios";
 
 const api = axios.create({ baseURL: "/api" });
 
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("proxmon_token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+api.interceptors.response.use(
+  (r) => r,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem("proxmon_token");
+      localStorage.removeItem("proxmon_user");
+      window.location.reload();
+    }
+    return Promise.reject(err);
+  }
+);
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  role: "admin" | "operator" | "viewer";
+  fullName: string;
+  email: string;
+}
+
+export const authApi = {
+  login: (username: string, password: string) =>
+    api.post<{ success: boolean; data: { token: string; user: AuthUser } }>("/auth/login", { username, password }).then((r) => r.data.data),
+  me: () =>
+    api.get<{ success: boolean; data: AuthUser }>("/auth/me").then((r) => r.data.data),
+};
+
+export interface ManagedUser {
+  id: string;
+  username: string;
+  role: "admin" | "operator" | "viewer";
+  fullName: string;
+  email: string;
+  createdAt: string;
+  lastLogin?: string;
+  active: boolean;
+}
+
+export const usersApi = {
+  getAll: () => api.get<{ success: boolean; data: ManagedUser[] }>("/users").then((r) => r.data.data),
+  create: (data: { username: string; password: string; role: string; fullName: string; email: string }) =>
+    api.post<{ success: boolean; data: ManagedUser }>("/users", data).then((r) => r.data.data),
+  update: (id: string, data: Partial<{ password: string; role: string; fullName: string; email: string; active: boolean }>) =>
+    api.put<{ success: boolean; data: ManagedUser }>(`/users/${id}`, data).then((r) => r.data.data),
+  delete: (id: string) =>
+    api.delete(`/users/${id}`).then((r) => r.data),
+};
+
 export interface VMStatus {
   vmid: number;
   name: string;

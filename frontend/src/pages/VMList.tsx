@@ -6,28 +6,23 @@ import VMDetail from "./VMDetail";
 interface Props {
   vms: VMStatus[];
   onToast: (msg: string, type: "success" | "error") => void;
+  userRole?: string;
 }
 
 type Filter = "all" | "running" | "stopped" | "qemu" | "lxc";
 
-export default function VMList({ vms, onToast }: Props) {
+export default function VMList({ vms, onToast, userRole }: Props) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<VMStatus | null>(null);
 
   if (selected) {
-    return <VMDetail vm={selected} onBack={() => setSelected(null)} onToast={onToast} />;
+    return <VMDetail vm={selected} onBack={() => setSelected(null)} onToast={onToast} userRole={userRole} />;
   }
 
   const filtered = vms.filter((vm) => {
-    const matchSearch =
-      !search ||
-      vm.name?.toLowerCase().includes(search.toLowerCase()) ||
-      String(vm.vmid).includes(search);
-    const matchFilter =
-      filter === "all" ||
-      filter === vm.status ||
-      filter === vm.type;
+    const matchSearch = !search || vm.name?.toLowerCase().includes(search.toLowerCase()) || String(vm.vmid).includes(search);
+    const matchFilter = filter === "all" || filter === vm.status || filter === vm.type;
     return matchSearch && matchFilter;
   });
 
@@ -41,12 +36,7 @@ export default function VMList({ vms, onToast }: Props) {
       </div>
 
       <div className="toolbar">
-        <input
-          className="search-input"
-          placeholder="Search by name or ID…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <input className="search-input" placeholder="Search by name or ID…" value={search} onChange={(e) => setSearch(e.target.value)} />
         <select className="filter-select" value={filter} onChange={(e) => setFilter(e.target.value as Filter)}>
           <option value="all">All</option>
           <option value="running">Running</option>
@@ -69,6 +59,7 @@ export default function VMList({ vms, onToast }: Props) {
               vm={vm}
               onClick={() => setSelected(vm)}
               onAction={onToast}
+              readOnly={userRole === "viewer"}
             />
           ))}
         </div>
