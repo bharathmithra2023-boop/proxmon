@@ -30,13 +30,19 @@ export interface VMStatus {
 
 export function extractProxmoxError(err: unknown): string {
   if (err instanceof Error) {
-    const axiosErr = err as { response?: { data?: { errors?: Record<string, string>; message?: string } } };
-    const errors = axiosErr.response?.data?.errors;
-    if (errors && typeof errors === "object") {
-      return Object.values(errors).join("; ").trim();
+    const axiosErr = err as { response?: { data?: unknown } };
+    const data = axiosErr.response?.data;
+    if (data && typeof data === "object") {
+      const d = data as { errors?: Record<string, string>; message?: string };
+      if (d.errors && typeof d.errors === "object") {
+        return Object.values(d.errors).join("; ").trim();
+      }
+      if (d.message) return d.message;
     }
-    const msg = axiosErr.response?.data?.message;
-    if (msg) return msg;
+    if (typeof data === "string" && data.trim()) {
+      // Plain text error from Proxmox — trim Perl stack traces
+      return data.split(" at /usr/share")[0].trim();
+    }
     return err.message;
   }
   return "Unknown error";
@@ -149,28 +155,28 @@ class ProxmoxClient {
 
   async startVM(vmid: number, type: "qemu" | "lxc"): Promise<string> {
     const res = await this.client.post(
-      `/nodes/${this.node}/${type}/${vmid}/status/start`
+      `/nodes/${this.node}/${type}/${vmid}/status/start`, {}
     );
     return res.data.data;
   }
 
   async stopVM(vmid: number, type: "qemu" | "lxc"): Promise<string> {
     const res = await this.client.post(
-      `/nodes/${this.node}/${type}/${vmid}/status/stop`
+      `/nodes/${this.node}/${type}/${vmid}/status/stop`, {}
     );
     return res.data.data;
   }
 
   async shutdownVM(vmid: number, type: "qemu" | "lxc"): Promise<string> {
     const res = await this.client.post(
-      `/nodes/${this.node}/${type}/${vmid}/status/shutdown`
+      `/nodes/${this.node}/${type}/${vmid}/status/shutdown`, {}
     );
     return res.data.data;
   }
 
   async rebootVM(vmid: number, type: "qemu" | "lxc"): Promise<string> {
     const res = await this.client.post(
-      `/nodes/${this.node}/${type}/${vmid}/status/reboot`
+      `/nodes/${this.node}/${type}/${vmid}/status/reboot`, {}
     );
     return res.data.data;
   }
