@@ -1,11 +1,14 @@
 import type { WSStatus } from "../hooks/useWebSocket";
+import type { Theme } from "../hooks/useTheme";
 
-type Page = "dashboard" | "vms" | "create" | "settings";
+type Page = "dashboard" | "vms" | "create" | "settings" | "help";
 
 interface Props {
   page: Page;
   onNav: (p: Page) => void;
   wsStatus: WSStatus;
+  theme: Theme;
+  onThemeToggle: () => void;
 }
 
 const wsLabels: Record<WSStatus, string> = {
@@ -15,7 +18,9 @@ const wsLabels: Record<WSStatus, string> = {
   error: "Connection error",
 };
 
-export default function Sidebar({ page, onNav, wsStatus }: Props) {
+export default function Sidebar({ page, onNav, wsStatus, theme, onThemeToggle }: Props) {
+  const isLight = theme === "light";
+
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -48,9 +53,19 @@ export default function Sidebar({ page, onNav, wsStatus }: Props) {
           <span className="nav-icon">⚙</span>
           <span>Settings</span>
         </button>
+        <button className={`sidebar-nav-item ${page === "help" ? "active" : ""}`} onClick={() => onNav("help")}>
+          <span className="nav-icon">?</span>
+          <span>Help</span>
+        </button>
       </div>
 
       <div className="sidebar-status">
+        <button className="theme-toggle" onClick={onThemeToggle}>
+          <span>{isLight ? "☀ Light Mode" : "☾ Dark Mode"}</span>
+          <div className={`theme-toggle-track ${isLight ? "on" : ""}`}>
+            <div className="theme-toggle-thumb" />
+          </div>
+        </button>
         <div className="ws-indicator">
           <span className={`ws-dot ${wsStatus}`} />
           <span>{wsLabels[wsStatus]}</span>

@@ -40,8 +40,9 @@ export interface StorageInfo {
 
 export interface ISOContent {
   volid: string;
-  name: string;
   size: number;
+  format: string;
+  ctime?: number;
 }
 
 export interface VMTemplate {

@@ -215,7 +215,7 @@ export default function CreateVMWizard({ onClose, onSuccess, onError }: Props) {
                       ))}
                       {isos.map((i) => (
                         <option key={i.volid} value={i.volid}>
-                          {i.name}
+                          {i.volid.split("/").pop() || i.volid}
                         </option>
                       ))}
                     </select>
