@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from "axios";
 import https from "https";
+import fs from "fs";
 
 interface ProxmoxConfig {
   host: string;
@@ -153,35 +154,83 @@ class ProxmoxClient {
     return res.data.data;
   }
 
+  // Read local ARP table — returns mac (lowercase, colon-separated) -> ip
+  private readArpTable(): Record<string, string> {
+    try {
+      const lines = fs.readFileSync("/proc/net/arp", "utf-8").split("\n").slice(1);
+      const map: Record<string, string> = {};
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 4) {
+          const ip = parts[0];
+          const mac = parts[3].toLowerCase();
+          if (mac && mac !== "00:00:00:00:00:00") map[mac] = ip;
+        }
+      }
+      return map;
+    } catch {
+      return {};
+    }
+  }
+
+  // Extract MAC from Proxmox net0 string e.g. "virtio=BC:24:11:A4:7D:FE,bridge=vmbr0"
+  private parseMacFromNet0(net0: string): string | null {
+    const m = net0.match(/(?:virtio|e1000|vmxnet3|rtl8139|ne2k_pci|pcnet)=([0-9A-Fa-f:]{17})/i)
+           || net0.match(/hwaddr=([0-9A-Fa-f:]{17})/i);
+    return m ? m[1].toLowerCase() : null;
+  }
+
   async getVMIP(vmid: number, type: "qemu" | "lxc"): Promise<string | null> {
     try {
       if (type === "qemu") {
-        // Try QEMU guest agent
-        const res = await this.client.get(
-          `/nodes/${this.node}/qemu/${vmid}/agent/network-get-interfaces`
-        );
-        const ifaces: { name: string; "ip-addresses"?: { "ip-address": string; "ip-address-type": string }[] }[] =
-          res.data.data?.result || [];
-        for (const iface of ifaces) {
-          if (iface.name === "lo") continue;
-          for (const addr of iface["ip-addresses"] || []) {
-            if (addr["ip-address-type"] === "ipv4" && !addr["ip-address"].startsWith("127.")) {
-              return addr["ip-address"];
+        // 1. Try QEMU guest agent (works if qemu-guest-agent is installed)
+        try {
+          const res = await this.client.get(
+            `/nodes/${this.node}/qemu/${vmid}/agent/network-get-interfaces`
+          );
+          const ifaces: { name: string; "ip-addresses"?: { "ip-address": string; "ip-address-type": string }[] }[] =
+            res.data.data?.result || [];
+          for (const iface of ifaces) {
+            if (iface.name === "lo") continue;
+            for (const addr of iface["ip-addresses"] || []) {
+              if (addr["ip-address-type"] === "ipv4" && !addr["ip-address"].startsWith("127.")) {
+                return addr["ip-address"];
+              }
             }
           }
-        }
-        // Fall back to ipconfig0 (cloud-init static IP)
+        } catch { /* agent not running */ }
+
+        // 2. Match VM MAC against local ARP table
         const cfg = await this.client.get(`/nodes/${this.node}/qemu/${vmid}/config`);
-        const ipconfig: string = cfg.data.data?.ipconfig0 || "";
-        const match = ipconfig.match(/ip=(\d+\.\d+\.\d+\.\d+)/);
-        if (match) return match[1];
+        const cfgData = cfg.data.data || {};
+
+        // Check ipconfig0 (cloud-init static IP)
+        const ipconfig: string = cfgData.ipconfig0 || "";
+        const ipcfgMatch = ipconfig.match(/ip=(\d+\.\d+\.\d+\.\d+)/);
+        if (ipcfgMatch) return ipcfgMatch[1];
+
+        // Match MAC -> ARP
+        const net0: string = cfgData.net0 || "";
+        const mac = this.parseMacFromNet0(net0);
+        if (mac) {
+          const arp = this.readArpTable();
+          if (arp[mac]) return arp[mac];
+        }
         return null;
       } else {
-        // LXC: parse IP from net0 config field
+        // LXC: net0 has explicit ip= field
         const res = await this.client.get(`/nodes/${this.node}/lxc/${vmid}/config`);
         const net0: string = res.data.data?.net0 || "";
         const match = net0.match(/ip=(\d+\.\d+\.\d+\.\d+)/);
-        return match ? match[1] : null;
+        if (match) return match[1];
+
+        // LXC fallback: ARP by MAC
+        const mac = this.parseMacFromNet0(net0);
+        if (mac) {
+          const arp = this.readArpTable();
+          if (arp[mac]) return arp[mac];
+        }
+        return null;
       }
     } catch {
       return null;
