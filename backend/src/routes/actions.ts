@@ -38,6 +38,8 @@ router.post("/:type/:vmid/shutdown", async (req, res) => {
     const taskId = await client.shutdownVM(vmid, type);
     res.json({ success: true, data: { taskId } });
   } catch (err: unknown) {
+    const axErr = err as { response?: { status?: number; data?: unknown } };
+    console.error("[shutdown] status:", axErr.response?.status, "data:", JSON.stringify(axErr.response?.data));
     const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
