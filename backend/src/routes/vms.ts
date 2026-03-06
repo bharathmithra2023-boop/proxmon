@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getProxmoxClient, extractProxmoxError } from "../lib/proxmox";
 import { getLockedKeys } from "../lib/lockStore";
+import { getAllStoredIPs, setStoredIP, clearStoredIP } from "../lib/ipStore";
 
 const router = Router();
 
@@ -21,11 +22,27 @@ router.get("/ips", async (_req, res) => {
   try {
     const client = getProxmoxClient();
     const vms = await client.getVMs();
-    const ips = await client.getAllVMIPs(vms);
-    res.json({ success: true, data: ips });
+    // Merge: auto-detected IPs + manually stored IPs (stored takes precedence)
+    const autoIPs = await client.getAllVMIPs(vms);
+    const storedIPs = getAllStoredIPs();
+    const merged = { ...autoIPs, ...storedIPs };
+    res.json({ success: true, data: merged });
   } catch (err: unknown) {
     const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
+  }
+});
+
+router.put("/:type/:vmid/ip", async (req, res) => {
+  try {
+    const type = req.params.type as "qemu" | "lxc";
+    const vmid = parseInt(req.params.vmid);
+    const { ip } = req.body as { ip: string };
+    if (!ip) { clearStoredIP(type, vmid); }
+    else { setStoredIP(type, vmid, ip.trim()); }
+    res.json({ success: true });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: extractProxmoxError(err) });
   }
 });
 

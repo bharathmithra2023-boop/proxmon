@@ -21,6 +21,7 @@ interface Props {
   userRole?: string;
   onRemove?: () => void;
   ip?: string;
+  onIPSave?: () => void;
 }
 
 interface RRDPoint {
@@ -48,7 +49,7 @@ const TooltipContent = ({ active, payload, label }: { active?: boolean; payload?
   );
 };
 
-export default function VMDetail({ vm, onBack, onToast, userRole, onRemove, ip }: Props) {
+export default function VMDetail({ vm, onBack, onToast, userRole, onRemove, ip, onIPSave }: Props) {
   const [rrd, setRRD] = useState<RRDPoint[]>([]);
   const [config, setConfig] = useState<Record<string, unknown>>({});
   const [timeframe, setTimeframe] = useState<Timeframe>("hour");
@@ -58,6 +59,9 @@ export default function VMDetail({ vm, onBack, onToast, userRole, onRemove, ip }
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [lockLoading, setLockLoading] = useState(false);
+  const [editingIP, setEditingIP] = useState(false);
+  const [ipInput, setIpInput] = useState(ip || "");
+  const [savingIP, setSavingIP] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -109,6 +113,20 @@ export default function VMDetail({ vm, onBack, onToast, userRole, onRemove, ip }
       onToast(msg, "error");
     } finally {
       setLockLoading(false);
+    }
+  };
+
+  const saveIP = async () => {
+    setSavingIP(true);
+    try {
+      await vmApi.setIP(vm.type, vm.vmid, ipInput.trim());
+      onToast(`IP address saved for ${vm.name}`, "success");
+      setEditingIP(false);
+      onIPSave?.();
+    } catch {
+      onToast("Failed to save IP address", "error");
+    } finally {
+      setSavingIP(false);
     }
   };
 
@@ -306,12 +324,36 @@ export default function VMDetail({ vm, onBack, onToast, userRole, onRemove, ip }
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Uptime</div>
                   <div style={{ fontSize: 18, fontWeight: 700 }}>{formatUptime(vm.uptime)}</div>
                 </div>
-                {ip && (
-                  <div style={{ marginTop: 12 }}>
-                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>IP Address</div>
-                    <div style={{ fontSize: 15, fontWeight: 600, fontFamily: "monospace", color: "var(--accent)" }}>{ip}</div>
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                    IP Address
+                    {userRole !== "viewer" && !editingIP && (
+                      <button className="btn btn-ghost btn-sm" style={{ padding: "0 6px", fontSize: 10, height: 18 }} onClick={() => { setIpInput(ip || ""); setEditingIP(true); }}>
+                        {ip ? "Edit" : "+ Set"}
+                      </button>
+                    )}
                   </div>
-                )}
+                  {editingIP ? (
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <input
+                        value={ipInput}
+                        onChange={(e) => setIpInput(e.target.value)}
+                        placeholder="e.g. 10.10.16.101"
+                        style={{ width: 140, fontSize: 13, padding: "4px 8px" }}
+                        autoFocus
+                        onKeyDown={(e) => { if (e.key === "Enter") saveIP(); if (e.key === "Escape") setEditingIP(false); }}
+                      />
+                      <button className="btn btn-primary btn-sm" onClick={saveIP} disabled={savingIP}>
+                        {savingIP ? <span className="spinner" style={{ width: 12, height: 12 }} /> : "Save"}
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setEditingIP(false)}>✕</button>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 15, fontWeight: 600, fontFamily: "monospace", color: ip ? "var(--accent)" : "var(--text-muted)" }}>
+                      {ip || "—"}
+                    </div>
+                  )}
+                </div>
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Network</div>
                   <div style={{ fontSize: 13 }}>▼ {formatBytes(vm.netin)} in</div>

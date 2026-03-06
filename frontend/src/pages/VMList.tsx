@@ -25,7 +25,7 @@ export default function VMList({ vms, onToast, userRole }: Props) {
   }, []);
 
   if (selected) {
-    return <VMDetail vm={selected} onBack={() => setSelected(null)} onToast={onToast} userRole={userRole} onRemove={() => setSelected(null)} ip={ips[`${selected.type}:${selected.vmid}`]} />;
+    return <VMDetail vm={selected} onBack={() => setSelected(null)} onToast={onToast} userRole={userRole} onRemove={() => setSelected(null)} ip={ips[`${selected.type}:${selected.vmid}`]} onIPSave={() => vmApi.getIPs().then(setIps).catch(() => {})} />;
   }
 
   const filtered = vms.filter((vm) => {

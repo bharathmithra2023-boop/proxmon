@@ -136,6 +136,7 @@ export const vmApi = {
   getTemplates: () => api.get<{ success: boolean; data: VMTemplate[] }>("/vms/templates").then((r) => r.data.data),
   getNextId: () => api.get<{ success: boolean; data: number }>("/vms/nextid").then((r) => r.data.data),
   getIPs: () => api.get<{ success: boolean; data: Record<string, string> }>("/vms/ips").then((r) => r.data.data),
+  setIP: (type: string, vmid: number, ip: string) => api.put(`/vms/${type}/${vmid}/ip`, { ip }).then((r) => r.data),
 };
 
 export const actionApi = {
