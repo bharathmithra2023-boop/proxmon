@@ -17,6 +17,18 @@ router.get("/", async (_req, res) => {
   }
 });
 
+router.get("/ips", async (_req, res) => {
+  try {
+    const client = getProxmoxClient();
+    const vms = await client.getVMs();
+    const ips = await client.getAllVMIPs(vms);
+    res.json({ success: true, data: ips });
+  } catch (err: unknown) {
+    const message = extractProxmoxError(err);
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
 router.get("/templates", async (_req, res) => {
   try {
     const client = getProxmoxClient();

@@ -153,6 +153,55 @@ class ProxmoxClient {
     return res.data.data;
   }
 
+  async getVMIP(vmid: number, type: "qemu" | "lxc"): Promise<string | null> {
+    try {
+      if (type === "qemu") {
+        // Try QEMU guest agent
+        const res = await this.client.get(
+          `/nodes/${this.node}/qemu/${vmid}/agent/network-get-interfaces`
+        );
+        const ifaces: { name: string; "ip-addresses"?: { "ip-address": string; "ip-address-type": string }[] }[] =
+          res.data.data?.result || [];
+        for (const iface of ifaces) {
+          if (iface.name === "lo") continue;
+          for (const addr of iface["ip-addresses"] || []) {
+            if (addr["ip-address-type"] === "ipv4" && !addr["ip-address"].startsWith("127.")) {
+              return addr["ip-address"];
+            }
+          }
+        }
+        // Fall back to ipconfig0 (cloud-init static IP)
+        const cfg = await this.client.get(`/nodes/${this.node}/qemu/${vmid}/config`);
+        const ipconfig: string = cfg.data.data?.ipconfig0 || "";
+        const match = ipconfig.match(/ip=(\d+\.\d+\.\d+\.\d+)/);
+        if (match) return match[1];
+        return null;
+      } else {
+        // LXC: parse IP from net0 config field
+        const res = await this.client.get(`/nodes/${this.node}/lxc/${vmid}/config`);
+        const net0: string = res.data.data?.net0 || "";
+        const match = net0.match(/ip=(\d+\.\d+\.\d+\.\d+)/);
+        return match ? match[1] : null;
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  async getAllVMIPs(vms: { vmid: number; type: "qemu" | "lxc"; status: string }[]): Promise<Record<string, string>> {
+    const running = vms.filter((v) => v.status === "running");
+    const results = await Promise.allSettled(
+      running.map((v) => this.getVMIP(v.vmid, v.type).then((ip) => ({ key: `${v.type}:${v.vmid}`, ip })))
+    );
+    const map: Record<string, string> = {};
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value.ip) {
+        map[r.value.key] = r.value.ip;
+      }
+    }
+    return map;
+  }
+
   async startVM(vmid: number, type: "qemu" | "lxc"): Promise<string> {
     const res = await this.client.post(
       `/nodes/${this.node}/${type}/${vmid}/status/start`, {}

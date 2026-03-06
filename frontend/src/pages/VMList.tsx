@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { VMStatus } from "../api/client";
+import { vmApi } from "../api/client";
 import VMCard from "../components/VMCard";
 import VMDetail from "./VMDetail";
 
@@ -15,9 +16,16 @@ export default function VMList({ vms, onToast, userRole }: Props) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<VMStatus | null>(null);
+  const [ips, setIps] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    vmApi.getIPs().then(setIps).catch(() => {});
+    const interval = setInterval(() => vmApi.getIPs().then(setIps).catch(() => {}), 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   if (selected) {
-    return <VMDetail vm={selected} onBack={() => setSelected(null)} onToast={onToast} userRole={userRole} onRemove={() => setSelected(null)} />;
+    return <VMDetail vm={selected} onBack={() => setSelected(null)} onToast={onToast} userRole={userRole} onRemove={() => setSelected(null)} ip={ips[`${selected.type}:${selected.vmid}`]} />;
   }
 
   const filtered = vms.filter((vm) => {
@@ -60,6 +68,7 @@ export default function VMList({ vms, onToast, userRole }: Props) {
               onClick={() => setSelected(vm)}
               onAction={onToast}
               readOnly={userRole === "viewer"}
+              ip={ips[`${vm.type}:${vm.vmid}`]}
             />
           ))}
         </div>

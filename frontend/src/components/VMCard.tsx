@@ -11,6 +11,7 @@ interface Props {
   onClick: () => void;
   onAction: (msg: string, type: "success" | "error") => void;
   readOnly?: boolean;
+  ip?: string;
 }
 
 type Action = "start" | "stop" | "reboot" | "shutdown";
@@ -21,7 +22,7 @@ interface PendingAction {
   icon: string;
 }
 
-export default function VMCard({ vm, onClick, onAction, readOnly }: Props) {
+export default function VMCard({ vm, onClick, onAction, readOnly, ip }: Props) {
   const [loading, setLoading] = useState<Action | null>(null);
   const [confirm, setConfirm] = useState<PendingAction | null>(null);
 
@@ -57,7 +58,10 @@ export default function VMCard({ vm, onClick, onAction, readOnly }: Props) {
         <div className="vm-card-header">
           <div>
             <div className="vm-name">{vm.name || `VM ${vm.vmid}`}</div>
-            <div className="vm-id">ID: {vm.vmid} · <span className="vm-type-badge">{vm.type.toUpperCase()}</span></div>
+            <div className="vm-id">
+            ID: {vm.vmid} · <span className="vm-type-badge">{vm.type.toUpperCase()}</span>
+            {ip && <span style={{ marginLeft: 6, color: "var(--text-secondary)", fontFamily: "monospace", fontSize: 11 }}>· {ip}</span>}
+          </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
             <StatusBadge status={vm.status} />

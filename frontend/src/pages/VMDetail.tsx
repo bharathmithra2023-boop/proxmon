@@ -20,6 +20,7 @@ interface Props {
   onToast: (msg: string, type: "success" | "error") => void;
   userRole?: string;
   onRemove?: () => void;
+  ip?: string;
 }
 
 interface RRDPoint {
@@ -47,7 +48,7 @@ const TooltipContent = ({ active, payload, label }: { active?: boolean; payload?
   );
 };
 
-export default function VMDetail({ vm, onBack, onToast, userRole, onRemove }: Props) {
+export default function VMDetail({ vm, onBack, onToast, userRole, onRemove, ip }: Props) {
   const [rrd, setRRD] = useState<RRDPoint[]>([]);
   const [config, setConfig] = useState<Record<string, unknown>>({});
   const [timeframe, setTimeframe] = useState<Timeframe>("hour");
@@ -305,6 +306,12 @@ export default function VMDetail({ vm, onBack, onToast, userRole, onRemove }: Pr
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Uptime</div>
                   <div style={{ fontSize: 18, fontWeight: 700 }}>{formatUptime(vm.uptime)}</div>
                 </div>
+                {ip && (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>IP Address</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, fontFamily: "monospace", color: "var(--accent)" }}>{ip}</div>
+                  </div>
+                )}
                 <div style={{ marginTop: 12 }}>
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Network</div>
                   <div style={{ fontSize: 13 }}>▼ {formatBytes(vm.netin)} in</div>
