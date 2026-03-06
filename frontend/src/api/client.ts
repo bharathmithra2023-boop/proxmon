@@ -144,6 +144,7 @@ export const actionApi = {
   create: (payload: CreateVMPayload) => api.post("/actions/create", payload).then((r) => r.data),
   clone: (payload: CloneVMPayload) => api.post("/actions/clone", payload).then((r) => r.data),
   taskStatus: (upid: string) => api.get(`/actions/task/${encodeURIComponent(upid)}`).then((r) => r.data.data),
+  remove: (type: string, vmid: number) => api.delete(`/actions/${type}/${vmid}`).then((r) => r.data),
 };
 
 export default api;

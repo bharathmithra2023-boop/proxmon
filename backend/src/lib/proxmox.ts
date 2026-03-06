@@ -160,6 +160,13 @@ class ProxmoxClient {
     return res.data.data;
   }
 
+  async deleteVM(vmid: number, type: "qemu" | "lxc"): Promise<string> {
+    const res = await this.client.delete(
+      `/nodes/${this.node}/${type}/${vmid}`
+    );
+    return res.data.data;
+  }
+
   async getStorages(): Promise<StorageInfo[]> {
     const res = await this.client.get(`/nodes/${this.node}/storage`);
     return res.data.data.filter((s: StorageInfo) => s.active);

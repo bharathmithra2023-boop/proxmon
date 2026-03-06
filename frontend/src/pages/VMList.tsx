@@ -17,7 +17,7 @@ export default function VMList({ vms, onToast, userRole }: Props) {
   const [selected, setSelected] = useState<VMStatus | null>(null);
 
   if (selected) {
-    return <VMDetail vm={selected} onBack={() => setSelected(null)} onToast={onToast} userRole={userRole} />;
+    return <VMDetail vm={selected} onBack={() => setSelected(null)} onToast={onToast} userRole={userRole} onRemove={() => setSelected(null)} />;
   }
 
   const filtered = vms.filter((vm) => {

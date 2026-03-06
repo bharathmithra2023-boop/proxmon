@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getProxmoxClient } from "../lib/proxmox";
+import { requireAdmin } from "../middleware/auth";
 
 const router = Router();
 
@@ -99,6 +100,19 @@ router.post("/clone", async (req, res) => {
     const targetVmid = await client.getNextVMIDInRange(min, max);
     const taskId = await client.cloneVM(sourceVmid, targetVmid, name, full !== false);
     res.json({ success: true, data: { taskId, vmid: targetVmid } });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+router.delete("/:type/:vmid", requireAdmin, async (req, res) => {
+  try {
+    const client = getProxmoxClient();
+    const type = req.params.type as "qemu" | "lxc";
+    const vmid = parseInt(String(req.params.vmid));
+    const taskId = await client.deleteVM(vmid, type);
+    res.json({ success: true, data: { taskId } });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     res.status(500).json({ success: false, error: message });

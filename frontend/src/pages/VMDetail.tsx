@@ -19,6 +19,7 @@ interface Props {
   onBack: () => void;
   onToast: (msg: string, type: "success" | "error") => void;
   userRole?: string;
+  onRemove?: () => void;
 }
 
 interface RRDPoint {
@@ -46,13 +47,15 @@ const TooltipContent = ({ active, payload, label }: { active?: boolean; payload?
   );
 };
 
-export default function VMDetail({ vm, onBack, onToast, userRole }: Props) {
+export default function VMDetail({ vm, onBack, onToast, userRole, onRemove }: Props) {
   const [rrd, setRRD] = useState<RRDPoint[]>([]);
   const [config, setConfig] = useState<Record<string, unknown>>({});
   const [timeframe, setTimeframe] = useState<Timeframe>("hour");
   const [loadingRRD, setLoadingRRD] = useState(true);
   const [loadingAction, setLoadingAction] = useState<Action | null>(null);
   const [confirm, setConfirm] = useState<{ action: Action; label: string } | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -83,6 +86,20 @@ export default function VMDetail({ vm, onBack, onToast, userRole }: Props) {
       onToast(`Failed to ${action} ${vm.name}`, "error");
     } finally {
       setLoadingAction(null);
+    }
+  };
+
+  const doRemove = async () => {
+    setConfirmRemove(false);
+    setRemoving(true);
+    try {
+      await actionApi.remove(vm.type, vm.vmid);
+      onToast(`VM "${vm.name}" removed successfully`, "success");
+      onRemove ? onRemove() : onBack();
+    } catch (err: unknown) {
+      onToast(err instanceof Error ? err.message : `Failed to remove ${vm.name}`, "error");
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -120,28 +137,40 @@ export default function VMDetail({ vm, onBack, onToast, userRole }: Props) {
             ID: {vm.vmid} · {vm.type.toUpperCase()} · <StatusBadge status={vm.status} />
           </div>
         </div>
-        {userRole !== "viewer" && (
-          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-            {isStopped && (
-              <button className="btn btn-success" onClick={() => doAction("start")} disabled={!!loadingAction}>
-                {loadingAction === "start" ? <span className="spinner" /> : "▶ Start"}
-              </button>
-            )}
-            {isRunning && (
-              <>
-                <button className="btn btn-warning" onClick={() => setConfirm({ action: "reboot", label: "Reboot" })} disabled={!!loadingAction}>
-                  {loadingAction === "reboot" ? <span className="spinner" /> : "↺ Reboot"}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          {userRole === "admin" && (
+            <button
+              className="btn btn-danger"
+              onClick={() => setConfirmRemove(true)}
+              disabled={removing || !!loadingAction}
+              title={isRunning ? "Stop the VM before removing" : "Remove VM permanently"}
+            >
+              {removing ? <span className="spinner" /> : "🗑 Remove"}
+            </button>
+          )}
+          {userRole !== "viewer" && (
+            <>
+              {isStopped && (
+                <button className="btn btn-success" onClick={() => doAction("start")} disabled={!!loadingAction}>
+                  {loadingAction === "start" ? <span className="spinner" /> : "▶ Start"}
                 </button>
-                <button className="btn btn-ghost" onClick={() => setConfirm({ action: "shutdown", label: "Shutdown" })} disabled={!!loadingAction}>
-                  {loadingAction === "shutdown" ? <span className="spinner" /> : "⏻ Shutdown"}
-                </button>
-                <button className="btn btn-danger" onClick={() => setConfirm({ action: "stop", label: "Force Stop" })} disabled={!!loadingAction}>
-                  {loadingAction === "stop" ? <span className="spinner" /> : "⬛ Stop"}
-                </button>
-              </>
-            )}
-          </div>
-        )}
+              )}
+              {isRunning && (
+                <>
+                  <button className="btn btn-warning" onClick={() => setConfirm({ action: "reboot", label: "Reboot" })} disabled={!!loadingAction}>
+                    {loadingAction === "reboot" ? <span className="spinner" /> : "↺ Reboot"}
+                  </button>
+                  <button className="btn btn-ghost" onClick={() => setConfirm({ action: "shutdown", label: "Shutdown" })} disabled={!!loadingAction}>
+                    {loadingAction === "shutdown" ? <span className="spinner" /> : "⏻ Shutdown"}
+                  </button>
+                  <button className="btn btn-danger" onClick={() => setConfirm({ action: "stop", label: "Force Stop" })} disabled={!!loadingAction}>
+                    {loadingAction === "stop" ? <span className="spinner" /> : "⬛ Stop"}
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       <div className="detail-grid">
@@ -285,6 +314,28 @@ export default function VMDetail({ vm, onBack, onToast, userRole }: Props) {
           onConfirm={() => doAction(confirm.action)}
           onCancel={() => setConfirm(null)}
           loading={!!loadingAction}
+        />
+      )}
+
+      {confirmRemove && (
+        <ConfirmDialog
+          title="Remove VM"
+          icon="🗑"
+          message={
+            <>
+              Permanently delete <strong>{vm.name}</strong> (ID: {vm.vmid})?
+              <br />
+              <span style={{ color: "var(--danger)", fontSize: 12 }}>
+                ⚠ This will destroy the VM and all its disks. This cannot be undone.
+                {isRunning && " Stop the VM first before removing."}
+              </span>
+            </>
+          }
+          confirmLabel="Remove VM"
+          confirmClass="btn btn-danger"
+          onConfirm={doRemove}
+          onCancel={() => setConfirmRemove(false)}
+          loading={removing}
         />
       )}
     </>
