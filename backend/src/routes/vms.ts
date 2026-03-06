@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getProxmoxClient, extractProxmoxError } from "../lib/proxmox";
+import { getLockedKeys } from "../lib/lockStore";
 
 const router = Router();
 
@@ -7,7 +8,9 @@ router.get("/", async (_req, res) => {
   try {
     const client = getProxmoxClient();
     const vms = await client.getVMs();
-    res.json({ success: true, data: vms });
+    const locked = getLockedKeys();
+    const data = vms.map((vm) => ({ ...vm, lock: locked.has(`${vm.type}:${vm.vmid}`) ? "proxmon" : undefined }));
+    res.json({ success: true, data });
   } catch (err: unknown) {
     const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });

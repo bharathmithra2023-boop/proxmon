@@ -181,14 +181,6 @@ class ProxmoxClient {
     return res.data.data;
   }
 
-  async lockVM(vmid: number, type: "qemu" | "lxc"): Promise<void> {
-    await this.client.put(`/nodes/${this.node}/${type}/${vmid}/config`, { lock: "rollback" });
-  }
-
-  async unlockVM(vmid: number, type: "qemu" | "lxc"): Promise<void> {
-    await this.client.put(`/nodes/${this.node}/${type}/${vmid}/config`, { delete: "lock" });
-  }
-
   async deleteVM(vmid: number, type: "qemu" | "lxc"): Promise<string> {
     const res = await this.client.delete(
       `/nodes/${this.node}/${type}/${vmid}`

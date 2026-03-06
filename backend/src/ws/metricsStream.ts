@@ -3,6 +3,7 @@ import { Server, IncomingMessage } from "http";
 import jwt from "jsonwebtoken";
 import { getProxmoxClient } from "../lib/proxmox";
 import { findById } from "../lib/userStore";
+import { getLockedKeys } from "../lib/lockStore";
 
 interface WSMessage {
   type: string;
@@ -44,7 +45,9 @@ export function initWebSocket(server: Server) {
         client.getVMs(),
         client.getNodeStatus(),
       ]);
-      broadcast({ type: "metrics", payload: { vms, nodeStatus } });
+      const locked = getLockedKeys();
+      const vmsWithLock = vms.map((vm) => ({ ...vm, lock: locked.has(`${vm.type}:${vm.vmid}`) ? "proxmon" : undefined }));
+      broadcast({ type: "metrics", payload: { vms: vmsWithLock, nodeStatus } });
     } catch {
       broadcast({ type: "error", payload: { message: "Failed to fetch metrics" } });
     }

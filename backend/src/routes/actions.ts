@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getProxmoxClient, extractProxmoxError } from "../lib/proxmox";
 import { requireAdmin } from "../middleware/auth";
+import { lockVM, unlockVM } from "../lib/lockStore";
 
 const router = Router();
 
@@ -108,27 +109,23 @@ router.post("/clone", async (req, res) => {
 
 router.post("/:type/:vmid/lock", async (req, res) => {
   try {
-    const client = getProxmoxClient();
     const type = req.params.type as "qemu" | "lxc";
     const vmid = parseInt(req.params.vmid);
-    await client.lockVM(vmid, type);
+    lockVM(type, vmid);
     res.json({ success: true });
   } catch (err: unknown) {
-    const message = extractProxmoxError(err);
-    res.status(500).json({ success: false, error: message });
+    res.status(500).json({ success: false, error: extractProxmoxError(err) });
   }
 });
 
 router.post("/:type/:vmid/unlock", async (req, res) => {
   try {
-    const client = getProxmoxClient();
     const type = req.params.type as "qemu" | "lxc";
     const vmid = parseInt(req.params.vmid);
-    await client.unlockVM(vmid, type);
+    unlockVM(type, vmid);
     res.json({ success: true });
   } catch (err: unknown) {
-    const message = extractProxmoxError(err);
-    res.status(500).json({ success: false, error: message });
+    res.status(500).json({ success: false, error: extractProxmoxError(err) });
   }
 });
 
