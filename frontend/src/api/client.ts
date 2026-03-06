@@ -71,6 +71,7 @@ export interface VMStatus {
   diskread: number;
   diskwrite: number;
   type: "qemu" | "lxc";
+  lock?: string;
 }
 
 export interface NodeStatus {
@@ -145,6 +146,8 @@ export const actionApi = {
   clone: (payload: CloneVMPayload) => api.post("/actions/clone", payload).then((r) => r.data),
   taskStatus: (upid: string) => api.get(`/actions/task/${encodeURIComponent(upid)}`).then((r) => r.data.data),
   remove: (type: string, vmid: number) => api.delete(`/actions/${type}/${vmid}`).then((r) => r.data),
+  lock: (type: string, vmid: number) => api.post(`/actions/${type}/${vmid}/lock`).then((r) => r.data),
+  unlock: (type: string, vmid: number) => api.post(`/actions/${type}/${vmid}/unlock`).then((r) => r.data),
 };
 
 export default api;

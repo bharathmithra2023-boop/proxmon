@@ -56,6 +56,7 @@ export default function VMDetail({ vm, onBack, onToast, userRole, onRemove }: Pr
   const [confirm, setConfirm] = useState<{ action: Action; label: string } | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [lockLoading, setLockLoading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -76,16 +77,37 @@ export default function VMDetail({ vm, onBack, onToast, userRole, onRemove }: Pr
     load();
   }, [vm.vmid, vm.type, timeframe]);
 
+  const isLocked = !!vm.lock;
+
   const doAction = async (action: Action) => {
     setConfirm(null);
     setLoadingAction(action);
     try {
       await actionApi[action](vm.type, vm.vmid);
       onToast(`${vm.name}: ${action} command sent`, "success");
-    } catch {
-      onToast(`Failed to ${action} ${vm.name}`, "error");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? (err as { response?: { data?: { error?: string } } }).response?.data?.error || err.message : "Unknown error";
+      onToast(msg, "error");
     } finally {
       setLoadingAction(null);
+    }
+  };
+
+  const doToggleLock = async () => {
+    setLockLoading(true);
+    try {
+      if (isLocked) {
+        await actionApi.unlock(vm.type, vm.vmid);
+        onToast(`${vm.name}: unlocked`, "success");
+      } else {
+        await actionApi.lock(vm.type, vm.vmid);
+        onToast(`${vm.name}: locked`, "success");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? (err as { response?: { data?: { error?: string } } }).response?.data?.error || err.message : "Unknown error";
+      onToast(msg, "error");
+    } finally {
+      setLockLoading(false);
     }
   };
 
@@ -137,18 +159,33 @@ export default function VMDetail({ vm, onBack, onToast, userRole, onRemove }: Pr
             ID: {vm.vmid} · {vm.type.toUpperCase()} · <StatusBadge status={vm.status} />
           </div>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+          {isLocked && (
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--warning)", background: "rgba(245,158,11,0.12)", padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(245,158,11,0.3)" }}>
+              🔒 Locked{vm.lock ? `: ${vm.lock}` : ""}
+            </span>
+          )}
+          {userRole !== "viewer" && (
+            <button
+              className={`btn btn-sm ${isLocked ? "btn-warning" : "btn-ghost"}`}
+              onClick={doToggleLock}
+              disabled={lockLoading || !!loadingAction || removing}
+              title={isLocked ? "Unlock VM to allow power actions" : "Lock VM to prevent power actions"}
+            >
+              {lockLoading ? <span className="spinner" style={{ width: 14, height: 14 }} /> : isLocked ? "🔓 Unlock" : "🔒 Lock"}
+            </button>
+          )}
           {userRole === "admin" && (
             <button
-              className="btn btn-danger"
+              className="btn btn-danger btn-sm"
               onClick={() => setConfirmRemove(true)}
               disabled={removing || !!loadingAction}
-              title={isRunning ? "Stop the VM before removing" : "Remove VM permanently"}
+              title="Remove VM permanently"
             >
               {removing ? <span className="spinner" /> : "🗑 Remove"}
             </button>
           )}
-          {userRole !== "viewer" && (
+          {userRole !== "viewer" && !isLocked && (
             <>
               {isStopped && (
                 <button className="btn btn-success" onClick={() => doAction("start")} disabled={!!loadingAction}>

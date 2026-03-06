@@ -35,8 +35,9 @@ export default function VMCard({ vm, onClick, onAction, readOnly }: Props) {
       const fn = actionApi[action];
       await fn(vm.type, vm.vmid);
       onAction(`${vm.name}: ${action} command sent`, "success");
-    } catch {
-      onAction(`Failed to ${action} ${vm.name}`, "error");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? (err as { response?: { data?: { error?: string } } }).response?.data?.error || err.message : "Unknown error";
+      onAction(msg, "error");
     } finally {
       setLoading(null);
     }
@@ -48,6 +49,7 @@ export default function VMCard({ vm, onClick, onAction, readOnly }: Props) {
 
   const isRunning = vm.status === "running";
   const isStopped = vm.status === "stopped";
+  const isLocked = !!vm.lock;
 
   return (
     <>
@@ -57,7 +59,14 @@ export default function VMCard({ vm, onClick, onAction, readOnly }: Props) {
             <div className="vm-name">{vm.name || `VM ${vm.vmid}`}</div>
             <div className="vm-id">ID: {vm.vmid} · <span className="vm-type-badge">{vm.type.toUpperCase()}</span></div>
           </div>
-          <StatusBadge status={vm.status} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+            <StatusBadge status={vm.status} />
+            {isLocked && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--warning)", background: "rgba(245,158,11,0.12)", padding: "2px 6px", borderRadius: 4, letterSpacing: "0.04em" }}>
+                🔒 LOCKED
+              </span>
+            )}
+          </div>
         </div>
 
         {isRunning && (
@@ -85,7 +94,10 @@ export default function VMCard({ vm, onClick, onAction, readOnly }: Props) {
         )}
 
         {!readOnly && <div className="vm-actions" onClick={(e) => e.stopPropagation()}>
-          {isStopped && (
+          {isLocked && (
+            <span style={{ fontSize: 11, color: "var(--warning)", alignSelf: "center" }}>🔒 Unlock to perform actions</span>
+          )}
+          {!isLocked && isStopped && (
             <button
               className="btn btn-success btn-sm"
               onClick={() => doAction("start")}
@@ -94,7 +106,7 @@ export default function VMCard({ vm, onClick, onAction, readOnly }: Props) {
               {loading === "start" ? <span className="spinner" style={{ width: 12, height: 12 }} /> : "▶ Start"}
             </button>
           )}
-          {isRunning && (
+          {!isLocked && isRunning && (
             <>
               <button
                 className="btn btn-warning btn-sm"

@@ -25,6 +25,21 @@ export interface VMStatus {
   diskwrite: number;
   pid?: number;
   type: "qemu" | "lxc";
+  lock?: string;
+}
+
+export function extractProxmoxError(err: unknown): string {
+  if (err instanceof Error) {
+    const axiosErr = err as { response?: { data?: { errors?: Record<string, string>; message?: string } } };
+    const errors = axiosErr.response?.data?.errors;
+    if (errors && typeof errors === "object") {
+      return Object.values(errors).join("; ").trim();
+    }
+    const msg = axiosErr.response?.data?.message;
+    if (msg) return msg;
+    return err.message;
+  }
+  return "Unknown error";
 }
 
 export interface NodeStatus {
@@ -158,6 +173,14 @@ class ProxmoxClient {
       `/nodes/${this.node}/${type}/${vmid}/status/reboot`
     );
     return res.data.data;
+  }
+
+  async lockVM(vmid: number, type: "qemu" | "lxc"): Promise<void> {
+    await this.client.put(`/nodes/${this.node}/${type}/${vmid}/config`, { lock: "rollback" });
+  }
+
+  async unlockVM(vmid: number, type: "qemu" | "lxc"): Promise<void> {
+    await this.client.put(`/nodes/${this.node}/${type}/${vmid}/config`, { delete: "lock" });
   }
 
   async deleteVM(vmid: number, type: "qemu" | "lxc"): Promise<string> {

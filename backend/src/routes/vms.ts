@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getProxmoxClient } from "../lib/proxmox";
+import { getProxmoxClient, extractProxmoxError } from "../lib/proxmox";
 
 const router = Router();
 
@@ -9,7 +9,7 @@ router.get("/", async (_req, res) => {
     const vms = await client.getVMs();
     res.json({ success: true, data: vms });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
@@ -20,7 +20,7 @@ router.get("/templates", async (_req, res) => {
     const templates = await client.getTemplates();
     res.json({ success: true, data: templates });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
@@ -33,7 +33,7 @@ router.get("/nextid", async (_req, res) => {
     const vmid = await client.getNextVMIDInRange(min, max);
     res.json({ success: true, data: vmid });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
@@ -46,7 +46,7 @@ router.get("/:type/:vmid/status", async (req, res) => {
     const status = await client.getVMStatus(vmid, type);
     res.json({ success: true, data: status });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
@@ -60,7 +60,7 @@ router.get("/:type/:vmid/rrd", async (req, res) => {
     const data = await client.getVMRRD(vmid, type, timeframe);
     res.json({ success: true, data });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
@@ -73,7 +73,7 @@ router.get("/:type/:vmid/config", async (req, res) => {
     const config = await client.getVMConfig(vmid, type);
     res.json({ success: true, data: config });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getProxmoxClient } from "../lib/proxmox";
+import { getProxmoxClient, extractProxmoxError } from "../lib/proxmox";
 import { requireAdmin } from "../middleware/auth";
 
 const router = Router();
@@ -12,7 +12,7 @@ router.post("/:type/:vmid/start", async (req, res) => {
     const taskId = await client.startVM(vmid, type);
     res.json({ success: true, data: { taskId } });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
@@ -25,7 +25,7 @@ router.post("/:type/:vmid/stop", async (req, res) => {
     const taskId = await client.stopVM(vmid, type);
     res.json({ success: true, data: { taskId } });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
@@ -38,7 +38,7 @@ router.post("/:type/:vmid/shutdown", async (req, res) => {
     const taskId = await client.shutdownVM(vmid, type);
     res.json({ success: true, data: { taskId } });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
@@ -51,7 +51,7 @@ router.post("/:type/:vmid/reboot", async (req, res) => {
     const taskId = await client.rebootVM(vmid, type);
     res.json({ success: true, data: { taskId } });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
@@ -84,7 +84,7 @@ router.post("/create", async (req, res) => {
     const taskId = await client.createVM(params);
     res.json({ success: true, data: { taskId, vmid: nextVmid } });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
@@ -101,7 +101,33 @@ router.post("/clone", async (req, res) => {
     const taskId = await client.cloneVM(sourceVmid, targetVmid, name, full !== false);
     res.json({ success: true, data: { taskId, vmid: targetVmid } });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+router.post("/:type/:vmid/lock", async (req, res) => {
+  try {
+    const client = getProxmoxClient();
+    const type = req.params.type as "qemu" | "lxc";
+    const vmid = parseInt(req.params.vmid);
+    await client.lockVM(vmid, type);
+    res.json({ success: true });
+  } catch (err: unknown) {
+    const message = extractProxmoxError(err);
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+router.post("/:type/:vmid/unlock", async (req, res) => {
+  try {
+    const client = getProxmoxClient();
+    const type = req.params.type as "qemu" | "lxc";
+    const vmid = parseInt(req.params.vmid);
+    await client.unlockVM(vmid, type);
+    res.json({ success: true });
+  } catch (err: unknown) {
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
@@ -114,7 +140,7 @@ router.delete("/:type/:vmid", requireAdmin, async (req, res) => {
     const taskId = await client.deleteVM(vmid, type);
     res.json({ success: true, data: { taskId } });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
@@ -125,7 +151,7 @@ router.get("/task/:upid", async (req, res) => {
     const status = await client.getTaskStatus(req.params.upid);
     res.json({ success: true, data: status });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = extractProxmoxError(err);
     res.status(500).json({ success: false, error: message });
   }
 });
