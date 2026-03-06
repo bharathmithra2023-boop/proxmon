@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: proxmon-backend
+    restart: unless-stopped
+    env_file: ./backend/.env
+    ports:
+      - "4000:4000"
+    networks:
+      - proxmon
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""
+    container_name: proxmon-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - proxmon
+
+networks:
+  proxmon:
+    driver: bridge
