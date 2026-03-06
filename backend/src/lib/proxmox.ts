@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from "axios";
 import https from "https";
 import fs from "fs";
+import { exec } from "child_process";
 
 interface ProxmoxConfig {
   host: string;
@@ -154,6 +155,19 @@ class ProxmoxClient {
     return res.data.data;
   }
 
+  // Ping-sweep subnet to populate ARP table, then read it
+  private async populateAndReadArp(subnet: string): Promise<Record<string, string>> {
+    // Extract base e.g. "10.10.16" from "10.10.16.201" or "10.10.16.0/24"
+    const base = subnet.replace(/\.\d+$/, "").replace(/\/\d+$/, "");
+    const pings = Array.from({ length: 254 }, (_, i) => i + 1).map(
+      (i) => new Promise<void>((resolve) => {
+        exec(`ping -c 1 -W 1 ${base}.${i}`, () => resolve());
+      })
+    );
+    await Promise.all(pings);
+    return this.readArpTable();
+  }
+
   // Read local ARP table — returns mac (lowercase, colon-separated) -> ip
   private readArpTable(): Record<string, string> {
     try {
@@ -239,15 +253,33 @@ class ProxmoxClient {
 
   async getAllVMIPs(vms: { vmid: number; type: "qemu" | "lxc"; status: string }[]): Promise<Record<string, string>> {
     const running = vms.filter((v) => v.status === "running");
-    const results = await Promise.allSettled(
+
+    // First pass: guest agent + ipconfig0 + existing ARP
+    const firstPass = await Promise.allSettled(
       running.map((v) => this.getVMIP(v.vmid, v.type).then((ip) => ({ key: `${v.type}:${v.vmid}`, ip })))
     );
     const map: Record<string, string> = {};
-    for (const r of results) {
-      if (r.status === "fulfilled" && r.value.ip) {
-        map[r.value.key] = r.value.ip;
-      }
+    for (const r of firstPass) {
+      if (r.status === "fulfilled" && r.value.ip) map[r.value.key] = r.value.ip;
     }
+    if (Object.keys(map).length === running.length) return map;
+
+    // Second pass: ping-sweep to populate ARP, then retry MAC matching
+    const network = process.env.VM_NETWORK || "10.10.16.0/24";
+    const arp = await this.populateAndReadArp(network);
+
+    // Fetch MACs for VMs that still have no IP and match against ARP
+    const missing = running.filter((v) => !map[`${v.type}:${v.vmid}`]);
+    await Promise.allSettled(
+      missing.map(async (v) => {
+        try {
+          const cfg = await this.client.get(`/nodes/${this.node}/${v.type}/${v.vmid}/config`);
+          const net0: string = cfg.data.data?.net0 || "";
+          const mac = this.parseMacFromNet0(net0);
+          if (mac && arp[mac]) map[`${v.type}:${v.vmid}`] = arp[mac];
+        } catch { /* skip */ }
+      })
+    );
     return map;
   }
 
