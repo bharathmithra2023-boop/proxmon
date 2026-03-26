@@ -137,6 +137,7 @@ export const vmApi = {
   getNextId: () => api.get<{ success: boolean; data: number }>("/vms/nextid").then((r) => r.data.data),
   getIPs: () => api.get<{ success: boolean; data: Record<string, string> }>("/vms/ips").then((r) => r.data.data),
   setIP: (type: string, vmid: number, ip: string) => api.put(`/vms/${type}/${vmid}/ip`, { ip }).then((r) => r.data),
+  getDiskUsage: () => api.get<{ success: boolean; data: Record<string, { used: number; total: number }> }>("/vms/disk").then((r) => r.data.data),
 };
 
 export const actionApi = {

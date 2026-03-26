@@ -48,6 +48,17 @@ router.put("/:type/:vmid/ip", async (req, res) => {
   }
 });
 
+router.get("/disk", async (_req, res) => {
+  try {
+    const client = getProxmoxClient();
+    const vms = await client.getVMs();
+    const data = await client.getAllVMDiskUsages(vms);
+    res.json({ success: true, data });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: extractProxmoxError(err) });
+  }
+});
+
 router.get("/templates", async (_req, res) => {
   try {
     const client = getProxmoxClient();

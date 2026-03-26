@@ -12,6 +12,7 @@ interface Props {
   onAction: (msg: string, type: "success" | "error") => void;
   readOnly?: boolean;
   ip?: string;
+  diskUsage?: { used: number; total: number };
 }
 
 type Action = "start" | "stop" | "reboot" | "shutdown";
@@ -22,13 +23,16 @@ interface PendingAction {
   icon: string;
 }
 
-export default function VMCard({ vm, onClick, onAction, readOnly, ip }: Props) {
+export default function VMCard({ vm, onClick, onAction, readOnly, ip, diskUsage }: Props) {
   const [loading, setLoading] = useState<Action | null>(null);
   const [confirm, setConfirm] = useState<PendingAction | null>(null);
 
   const cpuVal = cpuPct(vm.cpu ?? 0);
   const memVal = memPct(vm.mem ?? 0, vm.maxmem ?? 1);
-  const diskVal = diskPct(vm.disk ?? 0, vm.maxdisk ?? 1);
+  // For QEMU, prefer guest-agent disk usage; fall back to vm.disk (accurate for LXC)
+  const diskUsed = diskUsage?.used ?? vm.disk ?? 0;
+  const diskTotal = diskUsage?.total ?? vm.maxdisk ?? 0;
+  const diskVal = diskPct(diskUsed, diskTotal);
 
   const doAction = async (action: Action) => {
     setConfirm(null);
@@ -91,7 +95,7 @@ export default function VMCard({ vm, onClick, onAction, readOnly, ip }: Props) {
             <MetricBar
               label="Disk"
               value={diskVal}
-              display={`${formatBytes(vm.disk)} / ${formatBytes(vm.maxdisk)}`}
+              display={diskTotal > 0 ? `${formatBytes(diskUsed)} / ${formatBytes(diskTotal)}` : `${formatBytes(vm.maxdisk)} allocated`}
               type="disk"
             />
             <div className="uptime-text">Uptime: {formatUptime(vm.uptime)}</div>
@@ -102,7 +106,7 @@ export default function VMCard({ vm, onClick, onAction, readOnly, ip }: Props) {
           <MetricBar
             label="Disk"
             value={diskVal}
-            display={`${formatBytes(vm.disk)} / ${formatBytes(vm.maxdisk)}`}
+            display={diskTotal > 0 ? `${formatBytes(diskUsed)} / ${formatBytes(diskTotal)}` : `${formatBytes(vm.maxdisk)} allocated`}
             type="disk"
           />
         )}

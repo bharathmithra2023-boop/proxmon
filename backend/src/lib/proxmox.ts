@@ -374,6 +374,59 @@ class ProxmoxClient {
     return res.data.data;
   }
 
+  async getVMDiskUsage(vmid: number): Promise<{ used: number; total: number } | null> {
+    try {
+      const res = await this.client.get(
+        `/nodes/${this.node}/qemu/${vmid}/agent/get-fsinfo`
+      );
+      const filesystems: {
+        mountpoint: string;
+        type: string;
+        "used-bytes": number;
+        "total-bytes": number;
+      }[] = res.data.data?.result || [];
+
+      // Prefer the root filesystem for a single representative number
+      const rootFs = filesystems.find((fs) => fs.mountpoint === "/");
+      if (rootFs && rootFs["total-bytes"] > 0) {
+        return { used: rootFs["used-bytes"], total: rootFs["total-bytes"] };
+      }
+
+      // Fallback: sum all physical (non-virtual) filesystems
+      const virtual = new Set(["tmpfs", "devtmpfs", "sysfs", "proc", "cgroup", "cgroup2", "overlay", "devpts", "mqueue", "hugetlbfs", "debugfs", "securityfs", "pstore", "bpf", "tracefs", "fusectl", "efivarfs"]);
+      const physical = filesystems.filter(
+        (fs) => !virtual.has(fs.type) && fs["total-bytes"] > 0
+      );
+      if (physical.length > 0) {
+        return {
+          used: physical.reduce((a, fs) => a + fs["used-bytes"], 0),
+          total: physical.reduce((a, fs) => a + fs["total-bytes"], 0),
+        };
+      }
+      return null;
+    } catch {
+      return null; // agent not running or not installed
+    }
+  }
+
+  async getAllVMDiskUsages(
+    vms: { vmid: number; type: "qemu" | "lxc"; status: string }[]
+  ): Promise<Record<string, { used: number; total: number }>> {
+    const targets = vms.filter((v) => v.status === "running" && v.type === "qemu");
+    const results = await Promise.allSettled(
+      targets.map((v) =>
+        this.getVMDiskUsage(v.vmid).then((disk) => ({ key: `qemu:${v.vmid}`, disk }))
+      )
+    );
+    const map: Record<string, { used: number; total: number }> = {};
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value.disk) {
+        map[r.value.key] = r.value.disk;
+      }
+    }
+    return map;
+  }
+
   async createVNCProxy(vmid: number, type: "qemu" | "lxc"): Promise<{ port: string; ticket: string }> {
     const res = await this.client.post(
       `/nodes/${this.node}/${type}/${vmid}/vncproxy`,

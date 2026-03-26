@@ -17,10 +17,15 @@ export default function VMList({ vms, onToast, userRole }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<VMStatus | null>(null);
   const [ips, setIps] = useState<Record<string, string>>({});
+  const [diskUsage, setDiskUsage] = useState<Record<string, { used: number; total: number }>>({});
 
   useEffect(() => {
     vmApi.getIPs().then(setIps).catch(() => {});
-    const interval = setInterval(() => vmApi.getIPs().then(setIps).catch(() => {}), 30000);
+    vmApi.getDiskUsage().then(setDiskUsage).catch(() => {});
+    const interval = setInterval(() => {
+      vmApi.getIPs().then(setIps).catch(() => {});
+      vmApi.getDiskUsage().then(setDiskUsage).catch(() => {});
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -69,6 +74,7 @@ export default function VMList({ vms, onToast, userRole }: Props) {
               onAction={onToast}
               readOnly={userRole === "viewer"}
               ip={ips[`${vm.type}:${vm.vmid}`]}
+              diskUsage={diskUsage[`${vm.type}:${vm.vmid}`]}
             />
           ))}
         </div>
