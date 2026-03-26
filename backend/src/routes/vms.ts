@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getProxmoxClient, extractProxmoxError } from "../lib/proxmox";
 import { getLockedKeys } from "../lib/lockStore";
-import { getAllStoredIPs, setStoredIP, clearStoredIP } from "../lib/ipStore";
+import { getAllStoredIPs, setStoredIP, clearStoredIP, getAllAgentIPs } from "../lib/ipStore";
 
 const router = Router();
 
@@ -22,10 +22,12 @@ router.get("/ips", async (_req, res) => {
   try {
     const client = getProxmoxClient();
     const vms = await client.getVMs();
-    // Merge: auto-detected IPs + manually stored IPs (stored takes precedence)
+    // Merge priority: manual override > live detection > agent cache (last known)
+    // Agent IPs are auto-persisted by getAllVMIPs when the guest agent responds.
     const autoIPs = await client.getAllVMIPs(vms);
+    const agentIPs = getAllAgentIPs();
     const storedIPs = getAllStoredIPs();
-    const merged = { ...autoIPs, ...storedIPs };
+    const merged = { ...agentIPs, ...autoIPs, ...storedIPs };
     res.json({ success: true, data: merged });
   } catch (err: unknown) {
     const message = extractProxmoxError(err);

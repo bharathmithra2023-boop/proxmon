@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from "axios";
 import https from "https";
 import fs from "fs";
+import { setAgentIP } from "./ipStore";
 
 interface ProxmoxConfig {
   host: string;
@@ -180,7 +181,7 @@ class ProxmoxClient {
     return m ? m[1].toLowerCase() : null;
   }
 
-  async getVMIP(vmid: number, type: "qemu" | "lxc"): Promise<string | null> {
+  async getVMIP(vmid: number, type: "qemu" | "lxc"): Promise<{ ip: string; source: "agent" | "cloudinit" | "arp" } | null> {
     try {
       if (type === "qemu") {
         // 1. Try QEMU guest agent (works if qemu-guest-agent is installed)
@@ -194,7 +195,7 @@ class ProxmoxClient {
             if (iface.name === "lo") continue;
             for (const addr of iface["ip-addresses"] || []) {
               if (addr["ip-address-type"] === "ipv4" && !addr["ip-address"].startsWith("127.")) {
-                return addr["ip-address"];
+                return { ip: addr["ip-address"], source: "agent" };
               }
             }
           }
@@ -207,14 +208,14 @@ class ProxmoxClient {
         // Check ipconfig0 (cloud-init static IP)
         const ipconfig: string = cfgData.ipconfig0 || "";
         const ipcfgMatch = ipconfig.match(/ip=(\d+\.\d+\.\d+\.\d+)/);
-        if (ipcfgMatch) return ipcfgMatch[1];
+        if (ipcfgMatch) return { ip: ipcfgMatch[1], source: "cloudinit" };
 
         // Match MAC -> ARP
         const net0: string = cfgData.net0 || "";
         const mac = this.parseMacFromNet0(net0);
         if (mac) {
           const arp = this.readArpTable();
-          if (arp[mac]) return arp[mac];
+          if (arp[mac]) return { ip: arp[mac], source: "arp" };
         }
         return null;
       } else {
@@ -222,13 +223,13 @@ class ProxmoxClient {
         const res = await this.client.get(`/nodes/${this.node}/lxc/${vmid}/config`);
         const net0: string = res.data.data?.net0 || "";
         const match = net0.match(/ip=(\d+\.\d+\.\d+\.\d+)/);
-        if (match) return match[1];
+        if (match) return { ip: match[1], source: "cloudinit" };
 
         // LXC fallback: ARP by MAC
         const mac = this.parseMacFromNet0(net0);
         if (mac) {
           const arp = this.readArpTable();
-          if (arp[mac]) return arp[mac];
+          if (arp[mac]) return { ip: arp[mac], source: "arp" };
         }
         return null;
       }
@@ -240,11 +241,24 @@ class ProxmoxClient {
   async getAllVMIPs(vms: { vmid: number; type: "qemu" | "lxc"; status: string }[]): Promise<Record<string, string>> {
     const running = vms.filter((v) => v.status === "running");
     const results = await Promise.allSettled(
-      running.map((v) => this.getVMIP(v.vmid, v.type).then((ip) => ({ key: `${v.type}:${v.vmid}`, ip })))
+      running.map((v) =>
+        this.getVMIP(v.vmid, v.type).then((result) => ({
+          key: `${v.type}:${v.vmid}`,
+          type: v.type,
+          vmid: v.vmid,
+          result,
+        }))
+      )
     );
     const map: Record<string, string> = {};
     for (const r of results) {
-      if (r.status === "fulfilled" && r.value.ip) map[r.value.key] = r.value.ip;
+      if (r.status === "fulfilled" && r.value.result) {
+        const { key, type, vmid, result } = r.value;
+        map[key] = result.ip;
+        if (result.source === "agent") {
+          setAgentIP(type, vmid, result.ip);
+        }
+      }
     }
     return map;
   }
