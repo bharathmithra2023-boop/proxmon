@@ -152,4 +152,48 @@ export const actionApi = {
   unlock: (type: string, vmid: number) => api.post(`/actions/${type}/${vmid}/unlock`).then((r) => r.data),
 };
 
+export interface AlertRule {
+  id: string;
+  type: "vm_offline" | "vm_cpu" | "vm_ram" | "node_cpu" | "node_ram";
+  vmid?: number;
+  vmtype?: "qemu" | "lxc";
+  vmname?: string;
+  threshold?: number;
+  enabled: boolean;
+  createdAt: string;
+}
+
+export interface AlertEvent {
+  id: string;
+  type: string;
+  vmid?: number;
+  vmname?: string;
+  message: string;
+  value?: number;
+  threshold?: number;
+  timestamp: string;
+}
+
+export const alertsApi = {
+  getRules: () => api.get<{ success: boolean; data: AlertRule[] }>("/alerts/rules").then((r) => r.data.data),
+  createRule: (rule: Partial<AlertRule>) => api.post<{ success: boolean; data: AlertRule }>("/alerts/rules", rule).then((r) => r.data.data),
+  updateRule: (id: string, data: Partial<AlertRule>) => api.put<{ success: boolean; data: AlertRule }>(`/alerts/rules/${id}`, data).then((r) => r.data.data),
+  deleteRule: (id: string) => api.delete(`/alerts/rules/${id}`).then((r) => r.data),
+  getHistory: () => api.get<{ success: boolean; data: AlertEvent[] }>("/alerts/history").then((r) => r.data.data),
+};
+
+export interface AuditEntry {
+  id: string;
+  timestamp: string;
+  username: string;
+  action: string;
+  target: string;
+  result: "success" | "failure";
+  detail?: string;
+}
+
+export const auditApi = {
+  getLog: (limit?: number) => api.get<{ success: boolean; data: AuditEntry[] }>("/audit", { params: { limit } }).then((r) => r.data.data),
+};
+
 export default api;
