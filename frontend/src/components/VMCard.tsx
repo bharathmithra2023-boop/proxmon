@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { actionApi } from "../api/client";
 import type { VMStatus } from "../api/client";
-import { formatBytes, formatUptime, cpuPct, memPct } from "../lib/format";
+import { formatBytes, formatUptime, cpuPct, memPct, diskPct } from "../lib/format";
 import StatusBadge from "./StatusBadge";
 import MetricBar from "./MetricBar";
 import ConfirmDialog from "./ConfirmDialog";
@@ -28,6 +28,7 @@ export default function VMCard({ vm, onClick, onAction, readOnly, ip }: Props) {
 
   const cpuVal = cpuPct(vm.cpu ?? 0);
   const memVal = memPct(vm.mem ?? 0, vm.maxmem ?? 1);
+  const diskVal = diskPct(vm.disk ?? 0, vm.maxdisk ?? 1);
 
   const doAction = async (action: Action) => {
     setConfirm(null);
@@ -87,14 +88,23 @@ export default function VMCard({ vm, onClick, onAction, readOnly, ip }: Props) {
               display={`${formatBytes(vm.mem)} / ${formatBytes(vm.maxmem)}`}
               type="mem"
             />
+            <MetricBar
+              label="Disk"
+              value={diskVal}
+              display={`${formatBytes(vm.disk)} / ${formatBytes(vm.maxdisk)}`}
+              type="disk"
+            />
             <div className="uptime-text">Uptime: {formatUptime(vm.uptime)}</div>
           </>
         )}
 
         {isStopped && (
-          <div style={{ color: "var(--text-muted)", fontSize: 12, marginBottom: 8 }}>
-            Disk: {formatBytes(vm.maxdisk)}
-          </div>
+          <MetricBar
+            label="Disk"
+            value={diskVal}
+            display={`${formatBytes(vm.disk)} / ${formatBytes(vm.maxdisk)}`}
+            type="disk"
+          />
         )}
 
         {!readOnly && <div className="vm-actions" onClick={(e) => e.stopPropagation()}>
