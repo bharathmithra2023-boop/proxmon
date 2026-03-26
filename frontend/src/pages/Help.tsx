@@ -53,7 +53,49 @@ export default function Help() {
             </div>
           </div>
           <div className="help-card">
-            <div className="help-card-icon">🔴</div>
+            <div className="help-card-icon">🌐</div>
+            <div className="help-card-title">IP Address Tracking</div>
+            <div className="help-card-desc">
+              Auto-detects VM IPs via the QEMU guest agent (highest priority), cloud-init config, or ARP table. Guest-agent IPs are cached so the last known IP shows even when the agent is temporarily unreachable. Manual overrides are supported per VM.
+            </div>
+          </div>
+          <div className="help-card">
+            <div className="help-card-icon">🔒</div>
+            <div className="help-card-title">VM Locking</div>
+            <div className="help-card-desc">
+              Lock any VM to prevent accidental power actions. Locked VMs display a lock badge and all action buttons are disabled until explicitly unlocked. Requires operator role or above.
+            </div>
+          </div>
+          <div className="help-card">
+            <div className="help-card-icon">🖵</div>
+            <div className="help-card-title">VNC Console</div>
+            <div className="help-card-desc">
+              Open an in-browser VNC console to a running VM directly from the detail page. ProxMon proxies the Proxmox VNC WebSocket — no additional client software required.
+            </div>
+          </div>
+          <div className="help-card">
+            <div className="help-card-icon">🔔</div>
+            <div className="help-card-title">Alerts & Monitoring</div>
+            <div className="help-card-desc">
+              Define threshold rules for VM offline, high CPU, high RAM (per-VM or node-wide). Toggle rules on/off without deleting them. The History tab shows all triggered alert events with timestamps and values.
+            </div>
+          </div>
+          <div className="help-card">
+            <div className="help-card-icon">📋</div>
+            <div className="help-card-title">Audit Log</div>
+            <div className="help-card-desc">
+              Immutable record of every VM action — who did it, when, and whether it succeeded. Filter by username, action type, or target VM. Admins and operators can view; only admins can access user management.
+            </div>
+          </div>
+          <div className="help-card">
+            <div className="help-card-icon">👥</div>
+            <div className="help-card-title">User Management</div>
+            <div className="help-card-desc">
+              Admins can create, edit, enable/disable, and delete user accounts. Three roles: <strong>Admin</strong> (full access), <strong>Operator</strong> (VM actions), <strong>Viewer</strong> (read-only). The last active admin cannot be deleted.
+            </div>
+          </div>
+          <div className="help-card">
+            <div className="help-card-icon">🟢</div>
             <div className="help-card-title">Live Indicator</div>
             <div className="help-card-desc">
               Green dot in the sidebar = live WebSocket connection. If it turns grey, ProxMon will auto-reconnect every 4 seconds. No manual refresh needed.
@@ -188,6 +230,27 @@ export default function Help() {
               <span>
                 <strong>ISOs not showing in Create VM</strong><br />
                 ISOs must be uploaded to the <code>local</code> storage on Proxmox. Go to Proxmox UI → local → ISO Images → Upload.
+              </span>
+            </li>
+            <li>
+              <span className="help-step-num">!</span>
+              <span>
+                <strong>VM IP shows as blank or stale</strong><br />
+                For QEMU VMs, install <code>qemu-guest-agent</code> inside the VM and ensure it's running — this gives the most accurate IP. For LXC containers, the IP is read from the network config. A manual override can be set on the VM detail page.
+              </span>
+            </li>
+            <li>
+              <span className="help-step-num">!</span>
+              <span>
+                <strong>VNC console shows a blank screen or fails to connect</strong><br />
+                The VM must be running and the Proxmox API token must have <code>VM.Console</code> permission. VNC also requires the QEMU display to be enabled in the VM config (not <code>none</code>).
+              </span>
+            </li>
+            <li>
+              <span className="help-step-num">!</span>
+              <span>
+                <strong>Alerts page shows no data</strong><br />
+                Alert rules and history are stored by the backend. If the page loads but shows empty, check that the <code>/api/alerts</code> routes are registered in the backend and the backend container is healthy: <code>docker logs proxmon-backend</code>
               </span>
             </li>
             <li>
