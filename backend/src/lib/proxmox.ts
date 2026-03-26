@@ -373,6 +373,21 @@ class ProxmoxClient {
     );
     return res.data.data;
   }
+
+  async createVNCProxy(vmid: number, type: "qemu" | "lxc"): Promise<{ port: string; ticket: string }> {
+    const res = await this.client.post(
+      `/nodes/${this.node}/${type}/${vmid}/vncproxy`,
+      { websocket: 1 }
+    );
+    return { port: String(res.data.data.port), ticket: res.data.data.ticket };
+  }
+
+  getVNCWebsocketUrl(vmid: number, type: "qemu" | "lxc", port: string, ticket: string): string {
+    const host = process.env.PROXMOX_HOST || "localhost";
+    const apiPort = process.env.PROXMOX_PORT || "8006";
+    const encoded = encodeURIComponent(ticket);
+    return `wss://${host}:${apiPort}/api2/json/nodes/${this.node}/${type}/${vmid}/vncwebsocket?port=${port}&vncticket=${encoded}`;
+  }
 }
 
 let instance: ProxmoxClient | null = null;
